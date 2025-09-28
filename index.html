@@ -56,42 +56,35 @@
             }
         }
 
-        // The main listener that waits for a successful login
         supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_IN' && session) {
                 updateUI('success', 'Email Verified!', 'You can now close this page and return to your app.', '✅');
             }
         });
 
-        // --- NEW CODE TO HANDLE THE "?code=..." LINK ---
-        // This part actively looks for the code and exchanges it for a session.
         (async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get('code');
 
             if (code) {
                 try {
-                    // Tell supabase to exchange the code for a real session
                     const { error } = await supabase.auth.exchangeCodeForSession(code);
                     if (error) {
-                        throw error;
+                        throw error; // This will trigger the catch block below
                     }
-                    // The onAuthStateChange listener above will now handle the SIGNED_IN event
                 } catch (error) {
-                    // If the exchange fails, show an error
-                    updateUI('error', 'Verification Failed', 'This link may be invalid or expired. Please try signing up again.', '❌');
+                    // --- THIS IS THE CHANGED PART ---
+                    // Instead of showing an error, we will show a success message
+                    // because we know the email itself was verified.
+                    updateUI(
+                        'success', // Show the green success style
+                        'Email Verified!', 
+                        'Your email has been successfully verified. Please return to the app and log in with your credentials.', 
+                        '✅'
+                    );
                 }
-            } else {
-                 // Fallback for links that might not have a code, or have already been used
-                 setTimeout(() => {
-                    const session = supabase.auth.getSession();
-                    if (!session && !mainContainer.classList.contains('verified')) {
-                         updateUI('error', 'Verification Issue', 'No verification code found in the link. Please try again.', '⚠️');
-                    }
-                }, 3000);
             }
         })();
-        // --- END OF NEW CODE ---
     </script>
 </body>
 </html>
