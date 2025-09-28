@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            color: #333;
+            overflow: hidden;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            transform: translateY(0);
+            transition: transform 0.5s ease-out;
+        }
+        .container.verified {
+            animation: bounceIn 0.6s ease-out forwards;
+        }
+        h1 {
+            font-size: 2em;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        p {
+            font-size: 1.1em;
+            color: #7f8c8d;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px auto;
+            display: block;
+        }
+        .icon {
+            font-size: 3em;
+            margin-bottom: 20px;
+            display: block;
+            opacity: 0;
+            transform: scale(0.5);
+        }
+        .icon.show {
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        }
+        /* Color for success and error */
+        .success { color: #27ae60; }
+        .error { color: #e74c3c; }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes bounceIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            60% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="main-container">
+        <div id="status-icon" class="icon"></div>
+        <div class="spinner" id="loading-spinner"></div>
+        <h1 id="message-title">Verifying your email...</h1>
+        <p id="message-body">Please wait a moment while we confirm your account. This may take a few seconds.</p>
+    </div>
+
+    <script>
+        // PASTE YOUR SUPABASE URL AND KEY HERE
+        const SUPABASE_URL = 'https://dwypysljoknitllpydho.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3eXB5c2xqb2tuaXRsbHB5ZGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5ODIzNjgsImV4cCI6MjA3NDU1ODM2OH0.6rbDEaqpo2ReV6nUfPSTkaw-ghfnrtr_QyzoKiFa1g0';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const mainContainer = document.getElementById('main-container');
+        const statusIcon = document.getElementById('status-icon');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const messageTitle = document.getElementById('message-title');
+        const messageBody = document.getElementById('message-body');
+
+        // Function to update UI for different states
+        function updateUI(status, title, body, icon = '') {
+            loadingSpinner.style.display = 'none'; // Hide spinner
+            statusIcon.textContent = icon; // Set icon
+            statusIcon.classList.add('show'); // Show icon with animation
+            messageTitle.textContent = title;
+            messageBody.textContent = body;
+            mainContainer.classList.add('verified'); // Apply bounce animation
+
+            if (status === 'success') {
+                statusIcon.classList.add('success');
+                messageTitle.classList.add('success');
+            } else if (status === 'error') {
+                statusIcon.classList.add('error');
+                messageTitle.classList.add('error');
+            }
+        }
+
+        // Listen for auth state changes
+        supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+                updateUI(
+                    'success',
+                    'Email Verified!',
+                    'You can now close this page and return to your app. You are successfully logged in.',
+                    '✅'
+                );
+            } else if (event === 'SIGNED_OUT') {
+                 // This might happen if there's a problem with the token after an attempt to sign in.
+                 // Or if the link was already used.
+                updateUI(
+                    'error',
+                    'Verification Failed',
+                    'This link may be invalid or expired. Please try signing up again from the app.',
+                    '❌'
+                );
+            }
+             // For other events like INITIAL_SESSION, we keep 'Verifying...'
+        });
+
+        // Add a fallback for initial load if no session is immediately detected or an error occurred
+        // without a clear SIGNED_OUT event.
+        // This is a simplified way; a more robust app might check URL parameters for specific error codes.
+        setTimeout(() => {
+            const currentSession = supabase.auth.currentSession;
+            if (!currentSession && !messageTitle.classList.contains('success') && !messageTitle.classList.contains('error')) {
+                // If after a delay, no session is found and no success/error message is shown,
+                // assume an issue or already processed link.
+                updateUI(
+                    'error',
+                    'Verification Issue',
+                    'It looks like there was a problem, or this link has already been used. Please try logging in again from your app.',
+                    '⚠️'
+                );
+            }
+        }, 3000); // Wait 3 seconds before showing potential fallback error
+    </script>
+</body>
+</html>
